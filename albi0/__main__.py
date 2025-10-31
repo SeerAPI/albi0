@@ -1,8 +1,13 @@
 import sys
 
 import anyio
+from asyncer import asyncify
 
-from albi0 import cli_main
+from albi0.cli import cli
+
+
+async def cli_main(*args, **kwargs):
+	return await asyncify(cli)(*args, **kwargs)
 
 
 def main(*args):
