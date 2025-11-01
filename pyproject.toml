@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "Albi0"
-version = "0.4.1"
+version = "0.5.0"
 authors = [{ name = "Nattsu39", email = "nattsu39@outlook.com" }]
 description = "Plugin-based Unity Asset Extractor"
 keywords = ["unity", "asset", "extractor", "plugin", "game", "seer"]
