@@ -16,49 +16,49 @@ class Writer:
 
 	@staticmethod
 	def short(value: int, little_endian: bool = True) -> bytes:
-		"""写入有符号16位整数"""
+		"""写入有符号 16 位整数"""
 		format_str = '<h' if little_endian else '>h'
 		return struct.pack(format_str, value)
 
 	@staticmethod
 	def ushort(value: int, little_endian: bool = True) -> bytes:
-		"""写入无符号16位整数"""
+		"""写入无符号 16 位整数"""
 		format_str = '<H' if little_endian else '>H'
 		return struct.pack(format_str, value)
 
 	@staticmethod
 	def int(value: int, little_endian: bool = True) -> bytes:
-		"""写入有符号32位整数"""
+		"""写入有符号 32 位整数"""
 		format_str = '<i' if little_endian else '>i'
 		return struct.pack(format_str, value)
 
 	@staticmethod
 	def uint(value: 'int', little_endian: bool = True) -> bytes:
-		"""写入无符号32位整数"""
+		"""写入无符号 32 位整数"""
 		format_str = '<I' if little_endian else '>I'
 		return struct.pack(format_str, value)
 
 	@staticmethod
 	def long(value: 'int', little_endian: bool = True) -> bytes:
-		"""写入有符号64位整数"""
+		"""写入有符号 64 位整数"""
 		format_str = '<q' if little_endian else '>q'
 		return struct.pack(format_str, value)
 
 	@staticmethod
 	def ulong(value: 'int', little_endian: bool = True) -> bytes:
-		"""写入无符号64位整数"""
+		"""写入无符号 64 位整数"""
 		format_str = '<Q' if little_endian else '>Q'
 		return struct.pack(format_str, value)
 
 	@staticmethod
 	def float(value: float, little_endian: bool = True) -> bytes:
-		"""写入32位浮点数"""
+		"""写入 32 位浮点数"""
 		format_str = '<f' if little_endian else '>f'
 		return struct.pack(format_str, value)
 
 	@staticmethod
 	def double(value: 'float', little_endian: bool = True) -> bytes:
-		"""写入64位浮点数"""
+		"""写入 64 位浮点数"""
 		format_str = '<d' if little_endian else '>d'
 		return struct.pack(format_str, value)
 
@@ -97,7 +97,7 @@ class BytesReader:
 		Args:
 			data: 要读取的字节数据
 			length_type: 字符串长度前缀类型，默认使用全局设置
-			little_endian: 是否使用小端字节序，默认为True
+			little_endian: 是否使用小端字节序，默认为 True
 
 		"""
 		self.data = data
@@ -151,7 +151,7 @@ class BytesReader:
 		return value
 
 	def short(self, little_endian: bool | None = None) -> int:
-		"""读取有符号16位整数"""
+		"""读取有符号 16 位整数"""
 		if little_endian is None:
 			little_endian = self.little_endian
 		data = self.read(2)
@@ -159,7 +159,7 @@ class BytesReader:
 		return struct.unpack(format_str, data)[0]
 
 	def ushort(self, little_endian: bool | None = None) -> int:
-		"""读取无符号16位整数"""
+		"""读取无符号 16 位整数"""
 		if little_endian is None:
 			little_endian = self.little_endian
 		data = self.read(2)
@@ -167,7 +167,7 @@ class BytesReader:
 		return struct.unpack(format_str, data)[0]
 
 	def int(self, little_endian: bool | None = None) -> int:
-		"""读取有符号32位整数"""
+		"""读取有符号 32 位整数"""
 		if little_endian is None:
 			little_endian = self.little_endian
 		data = self.read(4)
@@ -175,7 +175,7 @@ class BytesReader:
 		return struct.unpack(format_str, data)[0]
 
 	def uint(self, little_endian: bool | None = None) -> 'int':
-		"""读取无符号32位整数"""
+		"""读取无符号 32 位整数"""
 		if little_endian is None:
 			little_endian = self.little_endian
 		data = self.read(4)
@@ -183,7 +183,7 @@ class BytesReader:
 		return struct.unpack(format_str, data)[0]
 
 	def long(self, little_endian: bool | None = None) -> 'int':
-		"""读取有符号64位整数"""
+		"""读取有符号 64 位整数"""
 		if little_endian is None:
 			little_endian = self.little_endian
 		data = self.read(8)
@@ -191,7 +191,7 @@ class BytesReader:
 		return struct.unpack(format_str, data)[0]
 
 	def ulong(self, little_endian: bool | None = None) -> 'int':
-		"""读取无符号64位整数"""
+		"""读取无符号 64 位整数"""
 		if little_endian is None:
 			little_endian = self.little_endian
 		data = self.read(8)
@@ -199,7 +199,7 @@ class BytesReader:
 		return struct.unpack(format_str, data)[0]
 
 	def float(self, little_endian: bool | None = None) -> float:
-		"""读取32位浮点数"""
+		"""读取 32 位浮点数"""
 		if little_endian is None:
 			little_endian = self.little_endian
 		data = self.read(4)
@@ -207,7 +207,7 @@ class BytesReader:
 		return struct.unpack(format_str, data)[0]
 
 	def double(self, little_endian: bool | None = None) -> 'float':
-		"""读取64位浮点数"""
+		"""读取 64 位浮点数"""
 		if little_endian is None:
 			little_endian = self.little_endian
 		data = self.read(8)
@@ -220,7 +220,7 @@ class BytesReader:
 		return [self.text() for _ in range(length)]
 
 	def int_list(self) -> list['int']:
-		"""读取带长度前缀的有符号32位整数列表"""
+		"""读取带长度前缀的有符号 32 位整数列表"""
 		length = self.ushort()
 		return [self.int() for _ in range(length)]
 
@@ -257,7 +257,7 @@ def bundle_bytes_struct(
 	Returns:
 		打包后的字节数组
 	"""
-	# 过滤掉None和undefined
+	# 过滤掉 None 和 undefined
 	schema = [s for s in schema if s is not None]
 
 	if tag:

@@ -26,7 +26,9 @@ from albi0.request import client as httpx_client
 @click.pass_context
 @syncify
 async def cli(ctx: click.Context):
-	importlib.import_module('albi0.plugins')
+	# CLI 自动加载所有插件
+	importlib.import_module('albi0.plugins.newseer')
+	importlib.import_module('albi0.plugins.seerproject')
 
 	ctx.call_on_close(on_close)
 	if ctx.invoked_subcommand is not None:
