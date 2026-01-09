@@ -14,7 +14,7 @@ from albi0.update.version import (
 	Manifest,
 	ManifestItem,
 )
-from albi0.utils import join_path, join_url
+from albi0.utils import join_path, join_url, retry_call
 
 
 class VersionProtocol(Protocol):
@@ -221,7 +221,8 @@ class YooVersionManager(AbstractVersionManager):
 	def get_remote_version(self) -> str:
 		"""获取远程版本号"""
 		remote_version_url = join_url(self.remote_path, self.version_basename)
-		response = httpx.get(
+		response = retry_call(
+			httpx.get,
 			remote_version_url,
 			params={'t': int(time.time() * 1000)},
 		)
@@ -238,7 +239,9 @@ class YooVersionManager(AbstractVersionManager):
 			self.remote_path,
 			f'PackageManifest_{self.package_name}_{self.get_remote_version()}.bytes',
 		)
-		response = httpx.get(remote_manifest_url, params={'t': int(time.time() * 1000)})
+		response = retry_call(
+			httpx.get, remote_manifest_url, params={'t': int(time.time() * 1000)}
+		)
 		response.raise_for_status()
 		manifest_dict = self.manifest_factory(response.content)
 		return self._simplify_manifest(manifest_dict)

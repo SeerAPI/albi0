@@ -8,12 +8,111 @@ import itertools
 import os
 from pathlib import Path
 import time
-from typing import AnyStr, TypeVar
+from typing import Any, AnyStr, Callable, ParamSpec, TypeVar
+import asyncio
 
+import httpx
 from tqdm import tqdm
 
 from albi0.log import logger
 from albi0.typing import PathTypes, T_PathLike
+
+T = TypeVar('T')
+P = ParamSpec('P')
+
+
+def retry(
+	max_retries: int = 3,
+	base_delay: float = 1.0,
+	max_delay: float = 60.0,
+	backoff_factor: float = 2.0,
+	exceptions: tuple[type[Exception], ...] = (httpx.HTTPError,),
+):
+	"""
+	指数退避重试装饰器，支持同步和异步函数。
+
+	Args:
+		max_retries: 最大重试次数
+		base_delay: 初始等待时间（秒）
+		max_delay: 最大等待时间（秒）
+		backoff_factor: 指数退避因子
+		exceptions: 触发重试的异常类型
+	"""
+
+	def decorator(func: Callable[P, T]) -> Callable[P, T]:
+		if asyncio.iscoroutinefunction(func):
+
+			@functools.wraps(func)
+			async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+				delay = base_delay
+				last_exception = None
+				for i in range(max_retries + 1):
+					try:
+						return await func(*args, **kwargs)
+					except exceptions as e:
+						last_exception = e
+						if i == max_retries:
+							logger.error(f'达到最大重试次数 ({max_retries})，最后一次错误: {e}')
+							raise
+						logger.warning(
+							f'请求失败: {e}，正在进行第 {i + 1} 次重试，等待 {delay:.2f}s...'
+						)
+						await asyncio.sleep(delay)
+						delay = min(delay * backoff_factor, max_delay)
+				if last_exception:
+					raise last_exception
+				raise RuntimeError('Unreachable')
+
+			return async_wrapper  # type: ignore
+		else:
+
+			@functools.wraps(func)
+			def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+				delay = base_delay
+				last_exception = None
+				for i in range(max_retries + 1):
+					try:
+						return func(*args, **kwargs)
+					except exceptions as e:
+						last_exception = e
+						if i == max_retries:
+							logger.error(f'达到最大重试次数 ({max_retries})，最后一次错误: {e}')
+							raise
+						logger.warning(
+							f'请求失败: {e}，正在进行第 {i + 1} 次重试，等待 {delay:.2f}s...'
+						)
+						time.sleep(delay)
+						delay = min(delay * backoff_factor, max_delay)
+				if last_exception:
+					raise last_exception
+				raise RuntimeError('Unreachable')
+
+			return sync_wrapper
+
+	return decorator
+
+
+def retry_call(
+	func: Callable[..., T],
+	*args: Any,
+	max_retries: int = 3,
+	base_delay: float = 1.0,
+	max_delay: float = 60.0,
+	backoff_factor: float = 2.0,
+	exceptions: tuple[type[Exception], ...] = (httpx.HTTPError,),
+	**kwargs: Any,
+) -> T:
+	"""
+	直接调用函数并进行重试，支持同步和异步。
+	"""
+	_retry: Any = retry(
+		max_retries=max_retries,
+		base_delay=base_delay,
+		max_delay=max_delay,
+		backoff_factor=backoff_factor,
+		exceptions=exceptions,
+	)
+	return _retry(func)(*args, **kwargs)
 
 
 class Hash:

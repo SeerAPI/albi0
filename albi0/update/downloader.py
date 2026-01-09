@@ -3,12 +3,13 @@ from typing import TYPE_CHECKING, ClassVar, Literal, NamedTuple
 
 import aiofiles
 import anyio
+import httpx
 from httpx import URL
 from tqdm.asyncio import tqdm
 
 from ..request import client as default_client
 from ..typing import DownloadPostProcessMethod
-from ..utils import Hash
+from ..utils import Hash, retry
 
 if TYPE_CHECKING:
 	from httpx import AsyncClient, Response
@@ -29,6 +30,7 @@ class Downloader:
 		self._client = client or self._global_client
 		self._semaphore = anyio.Semaphore(limit)
 
+	@retry()
 	async def _get_data(
 		self,
 		url: 'URLTypes',
@@ -43,7 +45,7 @@ class Downloader:
 
 			data = b''
 			with tqdm(
-				total=int(res.headers['content-length']),
+				total=int(res.headers.get('content-length', 0)),
 				unit_scale=True,
 				unit_divisor=1024,
 				unit='B',
@@ -57,7 +59,7 @@ class Downloader:
 					num_bytes_downloaded = res.num_bytes_downloaded
 
 		if md5 is not None and Hash(data).md5() != md5:
-			raise
+			raise httpx.HTTPError(f'MD5校验失败: {url}')
 
 		return data
 
