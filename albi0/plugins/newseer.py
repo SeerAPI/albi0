@@ -20,12 +20,12 @@ if TYPE_CHECKING:
 	from UnityPy.classes import Texture2D
 
 
-header = {
-	'user-agent': r'Mozilla/5.0 (Linux; Android 6.0.1; RIDGE 4G Build/LRX22G)AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2887.55 Mobile Safari/537.36',
+headers = {
+	'user-agent': r'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
 	'referer': r'https://newseer.61.com',
 }
 
-downloader = Downloader(AsyncClient())
+downloader = Downloader(AsyncClient(headers=headers))
 
 obj_pre = ObjPreHandlerGroup()
 asset_post = AssetPostHandlerGroup()
