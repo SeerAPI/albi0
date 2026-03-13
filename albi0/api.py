@@ -166,6 +166,7 @@ async def update_resources(
 	working_dir: PathTypes | None = None,
 	manifest_path: PathTypes | None = None,
 	max_workers: int = 10,
+	timeout: float | None = None,
 	ignore_version: bool = False,
 	save_manifest: bool = True,
 ) -> None:
@@ -179,6 +180,7 @@ async def update_resources(
 		working_dir: 工作目录，资源将下载到此目录
 		manifest_path: 自定义清单文件路径
 		max_workers: 并发下载的最大数量
+		timeout: 单个文件下载超时时间（秒），None 表示不限制
 		ignore_version: 是否忽略版本号检查，仅比对资源清单
 		save_manifest: 是否保存资源清单到本地
 		
@@ -237,6 +239,7 @@ async def update_resources(
 				patterns=patterns,
 				semaphore=anyio.Semaphore(max_workers),
 				save_manifest=save_manifest,
+				timeout=timeout,
 			)
 			
 			final_version = updater.version_manager.load_local_version()

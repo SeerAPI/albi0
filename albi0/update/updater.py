@@ -42,6 +42,7 @@ class Updater:
 		save_manifest: bool = True,
 		patterns: Iterable[str] = (),
 		semaphore: anyio.Semaphore | None = None,
+		timeout: float | None = None,
 	) -> None:
 		"""异步更新资源文件
 
@@ -53,6 +54,7 @@ class Updater:
 			save_manifest: 是否保存清单
 			patterns: glob语法的文件名过滤模式，用于过滤希望检查更新的文件，
 			如果为空则检查所有文件。
+			timeout: 单个文件下载超时时间（秒），None 表示不限制
 		"""
 		manifest = self.version_manager.generate_update_manifest(*patterns)
 		if not manifest:
@@ -71,6 +73,7 @@ class Updater:
 				progress_bar=progress_bar,
 				postprocess_handler=self.postprocess_handler,
 				semaphore=semaphore,
+				timeout=timeout,
 			)
 
 		if not tasks:
