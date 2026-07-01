@@ -10,6 +10,7 @@
 
 - 插件化：通过插件系统以支持多个游戏客户端，并提供了抽象的 manifest 版本管理器接口，便于支持热更逻辑
 - 异步下载：基于 `httpx`、`anyio` 与 `tqdm` 的高速并发下载与实时进度显示
+- 灵活筛选：支持按文件名 glob 模式与文件尺寸范围过滤需要下载的资源
 
 ## 已支持的游戏
 
@@ -54,6 +55,9 @@ uvx albi0 list
 ```bash
 # 可选：切换工作目录（默认当前目录）
 uvx albi0 update -n newseer.default -w ./newseer
+
+# 仅下载指定尺寸范围内的资源（支持纯字节数或 K/M/G 后缀）
+uvx albi0 update -n newseer.default --min-size 100K --max-size 5M '*.bundle'
 ```
 
 3) 仅查看远程版本号（不下载资源）：
@@ -98,7 +102,9 @@ async def main():
         # 3. 更新资源
         await albi0.update_resources(
             'newseer.default',
-            working_dir='./game_data'
+            working_dir='./game_data',
+            min_size='100K',
+            max_size='5M',
         )
     # 资源自动清理
 
@@ -114,7 +120,7 @@ asyncio.run(main())
 ```bash
 uvx albi0 --help
 uvx albi0 list
-uvx albi0 update -n <updater_name> [-w WORKING_DIR] [-s LIMIT] [--version-only] [PATTERNS...]
+uvx albi0 update -n <updater_name> [-w WORKING_DIR] [-s LIMIT] [--min-size SIZE] [--max-size SIZE] [--version-only] [PATTERNS...]
 uvx albi0 extract [OPTIONS] [-t THREADS] [PATTERNS...]
 ```
 
@@ -128,6 +134,8 @@ uvx albi0 extract [OPTIONS] [-t THREADS] [PATTERNS...]
 - 可选参数：
   - `-w, --working-dir` 切换执行时的工作目录
   - `-s, --semaphore-limit` 最大并发下载数（默认 10）
+  - `--min-size` 最小文件尺寸（含），支持纯字节数或 K/M/G 后缀，如 `1048576`、`1M`
+  - `--max-size` 最大文件尺寸（含），支持纯字节数或 K/M/G 后缀，如 `5242880`、`5M`
   - `--version-only` 仅获取远程版本号，不下载资源文件
 - 位置参数：`PATTERNS...` 可选的文件名过滤模式（glob 语法），用于仅更新匹配的清单项
 - 行为：
@@ -135,6 +143,8 @@ uvx albi0 extract [OPTIONS] [-t THREADS] [PATTERNS...]
   - 进度条展示每个文件的下载进度与总体任务进度
   - 当传入 `--version-only` 时，仅打印远程版本号并退出，不进行下载
   - 当提供 `PATTERNS...` 时，仅会下载文件名匹配 `PATTERNS...` 的条目
+  - 当提供 `--min-size` / `--max-size` 时，仅会下载远程清单中尺寸落在指定范围内的条目；尺寸信息来自远程 manifest，无需额外 HTTP 请求
+  - 尺寸过滤可与 `PATTERNS...` 组合使用；纯数字视为字节，带 `K`/`M`/`G` 后缀按 1024 进制解析
 
 ### extract
 
@@ -169,6 +179,9 @@ uvx albi0 update -n newseer.default -w ./workspace
 # 仅下载匹配的资源（使用 glob 过滤）
 uvx albi0 update -n newseer.default "*.builtin" "Shader/*"
 
+# 仅下载指定尺寸范围内的资源
+uvx albi0 update -n newseer.default --min-size 1M --max-size 10M "*.bundle"
+
 # 调整并发数下载
 uvx albi0 update -n newseer.default -s 20
 
@@ -200,7 +213,9 @@ async def main():
             'newseer.default',
             '*.builtin', 'Shader/*',  # 过滤特定文件
             working_dir='./workspace',
-            max_workers=20  # 并发数
+            max_workers=20,           # 并发数
+            min_size='1M',           # 最小文件尺寸
+            max_size='10M',           # 最大文件尺寸
         )
         
         # 4. 提取资源
@@ -256,8 +271,11 @@ await albi0.update_resources(
     working_dir=None,               # 工作目录
     manifest_path=None,             # 自定义清单路径
     max_workers=10,                 # 并发下载数
+    timeout=None,                   # 单文件下载超时（秒）
     ignore_version=False,           # 是否忽略版本检查
-    save_manifest=True              # 是否保存清单
+    save_manifest=True,             # 是否保存清单
+    min_size=None,                  # 最小文件尺寸，支持纯字节数或 K/M/G 后缀
+    max_size=None,                  # 最大文件尺寸，支持纯字节数或 K/M/G 后缀
 )
 
 # 获取远程版本
@@ -325,6 +343,7 @@ custom_updater = Updater(
 |-----|---------|-----------|
 | 提取资源 | `albi0 extract -n newseer *.bundle` | `await albi0.extract_assets('newseer', '*.bundle')` |
 | 更新资源 | `albi0 update -n newseer.default` | `await albi0.update_resources('newseer.default')` |
+| 按尺寸筛选下载 | `albi0 update -n newseer.default --min-size 1M --max-size 5M` | `await albi0.update_resources('newseer.default', min_size='1M', max_size='5M')` |
 | 列出处理器 | `albi0 list` | `albi0.list_extractors()` / `albi0.list_updaters()` |
 | 插件加载 | ✅ 自动加载 | ❌ 需手动调用 `load_plugin()` |
 
@@ -367,6 +386,8 @@ uv build
   - A: CLI 会自动加载所有插件。确保插件模块在 `albi0/plugins/` 目录中，并且在 `albi0/cli/__init__.py` 中被导入。
 - Q: 下载很慢/失败？
   - A: 默认并发数是 10，对于某些网络环境或服务器限制可能不是最优。可以尝试使用 `-s` 或 `--semaphore-limit` 选项减少并发数，例如 `-s 5`。如果问题仍然存在，可能需要检查网络或考虑使用代理。
+- Q: 如何只下载特定大小的资源文件？
+  - A: 使用 `--min-size` 和/或 `--max-size` 参数。尺寸支持纯字节数（如 `5242880`）或带 K/M/G 后缀的可读格式（如 `100K`、`5M`）。例如：`uvx albi0 update -n newseer.default --min-size 1M --max-size 10M`。Python API 中对应参数为 `min_size` 和 `max_size`。
 - Q: 导出结果的格式不符合预期？
   - A: 检查对应插件的对象前处理器与资源后处理器逻辑，或使用 `-e/--export-as-is` 原样导出。
 
