@@ -51,6 +51,7 @@ class SeerProjectVersionManager(YooVersionManager):
 				f'{join_url(self.remote_path, remote_filehash)}.bundle',
 				f'{local_basename}.bundle',
 				remote_filehash.encode(),
+				item['FileSize'],
 			)
 		return Manifest(version=version, items=items)
 

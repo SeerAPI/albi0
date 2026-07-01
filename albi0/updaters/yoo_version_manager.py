@@ -215,6 +215,7 @@ class YooVersionManager(AbstractVersionManager):
 				join_url(self.remote_path, remote_filehash),
 				f'{local_basename}.bundle',
 				remote_filehash.encode(),
+				item['FileSize'],
 			)
 		return Manifest(version=version, items=items)
 

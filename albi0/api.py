@@ -20,6 +20,7 @@ from albi0.request import client as httpx_client
 from albi0.typing import PathTypes
 from albi0.update.updater import updaters
 from albi0.update.version import Manifest
+from albi0.utils import parse_size, validate_size_range
 
 if TYPE_CHECKING:
 	from httpx import AsyncClient
@@ -169,6 +170,8 @@ async def update_resources(
 	timeout: float | None = None,
 	ignore_version: bool = False,
 	save_manifest: bool = True,
+	min_size: str | int | None = None,
+	max_size: str | int | None = None,
 ) -> None:
 	"""异步更新资源文件
 	
@@ -183,6 +186,8 @@ async def update_resources(
 		timeout: 单个文件下载超时时间（秒），None 表示不限制
 		ignore_version: 是否忽略版本号检查，仅比对资源清单
 		save_manifest: 是否保存资源清单到本地
+		min_size: 最小文件尺寸（含），支持纯字节数或 K/M/G 后缀
+		max_size: 最大文件尺寸（含），支持纯字节数或 K/M/G 后缀
 		
 	Raises:
 		ValueError: 当更新器不存在时
@@ -201,6 +206,10 @@ async def update_resources(
 		>>> 
 		>>> asyncio.run(main())
 	"""
+	parsed_min_size = parse_size(min_size) if min_size is not None else None
+	parsed_max_size = parse_size(max_size) if max_size is not None else None
+	validate_size_range(parsed_min_size, parsed_max_size)
+
 	# 切换工作目录
 	original_cwd = None
 	if working_dir:
@@ -240,6 +249,8 @@ async def update_resources(
 				semaphore=anyio.Semaphore(max_workers),
 				save_manifest=save_manifest,
 				timeout=timeout,
+				min_size=parsed_min_size,
+				max_size=parsed_max_size,
 			)
 			
 			final_version = updater.version_manager.load_local_version()

@@ -7,6 +7,7 @@ import hashlib
 import itertools
 import os
 from pathlib import Path
+import re
 import time
 from typing import Any, AnyStr, Callable, ParamSpec, TypeVar
 import asyncio
@@ -19,6 +20,60 @@ from albi0.typing import PathTypes, T_PathLike
 
 T = TypeVar('T')
 P = ParamSpec('P')
+
+_SIZE_UNITS = {'K': 1024, 'M': 1024**2, 'G': 1024**3}
+_SIZE_PATTERN = re.compile(r'^(\d+(?:\.\d+)?)([KMG])?$', re.IGNORECASE)
+
+
+def parse_size(value: str | int) -> int:
+	"""解析文件尺寸字符串为字节数。
+
+	纯数字视为字节；带 K/M/G 后缀按 1024 进制解析（如 ``1M`` = 1048576）。
+
+	Args:
+		value: 尺寸值，如 ``1048576``、``"1M"``、``"1.5M"``
+
+	Raises:
+		ValueError: 当输入格式无效或为负数时
+	"""
+	if isinstance(value, int):
+		if value < 0:
+			raise ValueError(f'文件尺寸不能为负数: {value}')
+		return value
+
+	text = value.strip()
+	if not text:
+		raise ValueError(f'无效的文件尺寸: {value!r}')
+
+	if text.isdigit():
+		return int(text)
+
+	match = _SIZE_PATTERN.match(text)
+	if not match:
+		raise ValueError(f'无效的文件尺寸: {value!r}')
+
+	number = float(match.group(1))
+	unit = match.group(2)
+	if unit is None:
+		result = number
+	else:
+		result = number * _SIZE_UNITS[unit.upper()]
+
+	if result < 0:
+		raise ValueError(f'文件尺寸不能为负数: {value!r}')
+
+	return int(result)
+
+
+def validate_size_range(
+	min_size: int | None,
+	max_size: int | None,
+) -> None:
+	"""校验尺寸范围是否有效。"""
+	if min_size is not None and max_size is not None and min_size > max_size:
+		raise ValueError(
+			f'最小文件尺寸 ({min_size}) 不能大于最大文件尺寸 ({max_size})'
+		)
 
 
 def retry(

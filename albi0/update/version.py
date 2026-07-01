@@ -23,17 +23,21 @@ class ManifestItem(NamedTuple):
 	remote_filename: str
 	local_basename: str
 	file_hash: bytes
+	file_size: int | None = None
 
 
 def encode_manifest_items(items: dict[LocalFileName, ManifestItem]) -> dict:
-	return {
-		str(local_fn): {
+	encoded: dict[str, dict] = {}
+	for local_fn, item in items.items():
+		entry: dict = {
 			'remote_filename': item.remote_filename,
 			'local_basename': item.local_basename,
 			'file_hash': item.file_hash.hex(),
 		}
-		for local_fn, item in items.items()
-	}
+		if item.file_size is not None:
+			entry['file_size'] = item.file_size
+		encoded[str(local_fn)] = entry
+	return encoded
 
 
 def decode_manifest_items(items: dict) -> dict[LocalFileName, ManifestItem]:
@@ -42,6 +46,7 @@ def decode_manifest_items(items: dict) -> dict[LocalFileName, ManifestItem]:
 			item['remote_filename'],
 			item['local_basename'],
 			bytes.fromhex(item['file_hash']),
+			item.get('file_size'),
 		)
 		for local_fn, item in items.items()
 	}
@@ -77,6 +82,36 @@ class Manifest(DataClassJsonMixin):
 				if fnmatch(item.local_basename, pattern):
 					filtered_items[local_fn] = item
 					break
+
+		return self.__class__(version=self.version, items=filtered_items)
+
+	def filter_by_file_size(
+		self,
+		min_size: int | None = None,
+		max_size: int | None = None,
+	) -> Self:
+		"""按文件尺寸筛选清单条目。
+
+		Args:
+			min_size: 最小文件尺寸（含），单位为字节
+			max_size: 最大文件尺寸（含），单位为字节
+
+		Returns:
+			包含匹配文件的新 Manifest 实例；若未指定尺寸范围则原样返回
+		"""
+		if min_size is None and max_size is None:
+			return self
+
+		filtered_items = {}
+		for local_fn, item in self.items.items():
+			if item.file_size is None:
+				filtered_items[local_fn] = item
+				continue
+			if min_size is not None and item.file_size < min_size:
+				continue
+			if max_size is not None and item.file_size > max_size:
+				continue
+			filtered_items[local_fn] = item
 
 		return self.__class__(version=self.version, items=filtered_items)
 
@@ -137,12 +172,19 @@ class AbstractVersionManager(ABC):
 		注意该方法仅判断版本号，不能用于判断是否需要下载资源。
 		"""
 
-	def generate_update_manifest(self, *patterns: str) -> Manifest | None:
+	def generate_update_manifest(
+		self,
+		*patterns: str,
+		min_size: int | None = None,
+		max_size: int | None = None,
+	) -> Manifest | None:
 		"""
 		比对本地与远程清单，返回需要更新的资源。
 
 		Args:
 			*patterns: 一个或多个glob模式字符串，如 "*.txt", "data/**/*.json"
+			min_size: 最小文件尺寸（含），单位为字节，仅过滤远程清单
+			max_size: 最大文件尺寸（含），单位为字节，仅过滤远程清单
 
 		Returns:
 			包含匹配资源的清单，返回所有模式的并集，patterns为空则原样返回，
@@ -151,7 +193,11 @@ class AbstractVersionManager(ABC):
 		remote_manifest = self.get_remote_manifest()
 		local_manifest = self.load_local_manifest()
 		remote_version = remote_manifest.version
-		remote_items = remote_manifest.filter_local_filenames_by_glob(*patterns).items
+		remote_items = (
+			remote_manifest.filter_local_filenames_by_glob(*patterns)
+			.filter_by_file_size(min_size, max_size)
+			.items
+		)
 		local_items = local_manifest.filter_local_filenames_by_glob(*patterns).items
 
 		if local_items == remote_items or not remote_items:
@@ -164,11 +210,11 @@ class AbstractVersionManager(ABC):
 			except KeyError:
 				return True
 
-		items = filter(needs_update, remote_items.items())
+		items = dict(filter(needs_update, remote_items.items()))
 		if not items:
 			return None
 
-		return Manifest(version=remote_version, items=dict(items))
+		return Manifest(version=remote_version, items=items)
 
 	def save_remote_manifest(self) -> None:
 		"""保存远程资源清单到本地"""

@@ -43,6 +43,8 @@ class Updater:
 		patterns: Iterable[str] = (),
 		semaphore: anyio.Semaphore | None = None,
 		timeout: float | None = None,
+		min_size: int | None = None,
+		max_size: int | None = None,
 	) -> None:
 		"""异步更新资源文件
 
@@ -55,8 +57,14 @@ class Updater:
 			patterns: glob语法的文件名过滤模式，用于过滤希望检查更新的文件，
 			如果为空则检查所有文件。
 			timeout: 单个文件下载超时时间（秒），None 表示不限制
+			min_size: 最小文件尺寸（含），单位为字节
+			max_size: 最大文件尺寸（含），单位为字节
 		"""
-		manifest = self.version_manager.generate_update_manifest(*patterns)
+		manifest = self.version_manager.generate_update_manifest(
+			*patterns,
+			min_size=min_size,
+			max_size=max_size,
+		)
 		if not manifest:
 			self._log_message('没有需要更新的文件，运行结束')
 			return

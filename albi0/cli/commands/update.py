@@ -6,7 +6,28 @@ import click
 from tqdm.asyncio import tqdm
 
 from albi0.update import updaters
-from albi0.utils import set_directory, timer
+from albi0.utils import parse_size, set_directory, timer, validate_size_range
+
+
+class FileSizeParamType(click.ParamType):
+	"""文件尺寸参数类型，支持纯字节数或 K/M/G 后缀。"""
+
+	name = 'file_size'
+
+	def convert(
+		self,
+		value: str,
+		param: click.Parameter | None,
+		ctx: click.Context | None,
+	) -> int:
+		try:
+			return parse_size(value)
+		except ValueError as exc:
+			self.fail(str(exc), param, ctx)
+			raise AssertionError from exc
+
+
+FILE_SIZE = FileSizeParamType()
 
 
 @click.command(help='更新资源清单并下载资源文件')
@@ -48,6 +69,18 @@ from albi0.utils import set_directory, timer
 	default=False,
 	help='仅获取远程版本号，不下载资源文件',
 )
+@click.option(
+	'--min-size',
+	type=FILE_SIZE,
+	default=None,
+	help='最小文件尺寸（含），支持纯字节数或 K/M/G 后缀，如 1048576、1M',
+)
+@click.option(
+	'--max-size',
+	type=FILE_SIZE,
+	default=None,
+	help='最大文件尺寸（含），支持纯字节数或 K/M/G 后缀，如 5242880、5M',
+)
 @click.argument('patterns', nargs=-1, default=None)
 @click.pass_context
 @syncify
@@ -60,8 +93,15 @@ async def update(
 	version_only: bool,
 	semaphore_limit: int,
 	ignore_version: bool,
+	min_size: int | None,
+	max_size: int | None,
 ) -> None:
 	patterns = patterns or []
+	try:
+		validate_size_range(min_size, max_size)
+	except ValueError as exc:
+		raise click.BadParameter(str(exc)) from exc
+
 	os.chdir(working_dir or './')
 	updater_set = updaters.get_processors(updater_name)
 	if not updater_set:
@@ -104,6 +144,8 @@ async def update(
 				progress_bar=tqdm(desc='下载资源文件', unit='file'),
 				patterns=patterns,
 				semaphore=anyio.Semaphore(semaphore_limit),
+				min_size=min_size,
+				max_size=max_size,
 			)
 			click.echo(
 				f'✅(<ゝω・)～☆更新完毕！'
