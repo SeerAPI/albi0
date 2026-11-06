@@ -271,7 +271,7 @@ await albi0.update_resources(
     working_dir=None,               # 工作目录
     manifest_path=None,             # 自定义清单路径
     max_workers=10,                 # 并发下载数
-    timeout=None,                   # 单文件下载超时（秒）
+    timeout=None,                   # 等待网络进展的超时（秒）
     ignore_version=False,           # 是否忽略版本检查
     save_manifest=True,             # 是否保存清单
     min_size=None,                  # 最小文件尺寸，支持纯字节数或 K/M/G 后缀
