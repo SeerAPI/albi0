@@ -47,7 +47,7 @@ class Downloader:
 		Args:
 			client: httpx异步客户端
 			limit: 最大并发下载数
-			timeout: 单个文件下载超时时间（秒），None 表示不限制
+			timeout: 等待网络数据的最长间隔（秒），None 表示不限制
 		"""
 		self._client = client or self._global_client
 		self._semaphore = anyio.Semaphore(limit)
@@ -66,29 +66,31 @@ class Downloader:
 		effective_timeout = timeout if timeout is not None else self._timeout
 
 		try:
-			with anyio.fail_after(effective_timeout):
-				async with self._client.stream(method, url, timeout=None) as res:
-					res: 'Response'
-					res.raise_for_status()
+			async with self._client.stream(
+				method, url, timeout=effective_timeout
+			) as res:
+				res: 'Response'
+				res.raise_for_status()
 
-					data = b''
-					with tqdm(
-						total=int(res.headers.get('content-length', 0)),
-						unit_scale=True,
-						unit_divisor=1024,
-						unit='B',
-						desc=f'{url.path.split("/")[-1]}下载中',
-						leave=False,
-					) as progress_bar:
+				data = b''
+				with tqdm(
+					total=int(res.headers.get('content-length', 0)),
+					unit_scale=True,
+					unit_divisor=1024,
+					unit='B',
+					desc=f'{url.path.split("/")[-1]}下载中',
+					leave=False,
+				) as progress_bar:
+					num_bytes_downloaded = res.num_bytes_downloaded
+					async for chunk in res.aiter_bytes():
+						data += chunk
+						progress_bar.update(
+							res.num_bytes_downloaded - num_bytes_downloaded
+						)
 						num_bytes_downloaded = res.num_bytes_downloaded
-						async for chunk in res.aiter_bytes():
-							data += chunk
-							progress_bar.update(
-								res.num_bytes_downloaded - num_bytes_downloaded
-							)
-							num_bytes_downloaded = res.num_bytes_downloaded
-		except TimeoutError:
-			assert effective_timeout is not None
+		except httpx.TimeoutException:
+			if effective_timeout is None:
+				raise
 			logger.error(f'下载超时 ({effective_timeout}s): {url}')
 			raise DownloadTimeoutError(url, effective_timeout) from None
 
